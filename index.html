@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>食物嘌呤查询 · 每100g</title>
+<meta name="theme-color" content="#F5F7F6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="嘌呤查询">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230F7A5A'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='sans-serif'%3E嘌%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#F5F7F6; --card:#FFFFFF; --ink:#15211B; --muted:#6C7C73; --line:#E4EAE6;
+    --accent:#0F7A5A; --accent-soft:#E6F2ED;
+    --vhigh:#D8443C; --vhigh-bg:#FCEDEC;
+    --high:#DE7F33; --high-bg:#FDF1E6;
+    --mid:#B8892A; --mid-bg:#FAF2DF;
+    --low:#2E9E5B; --low-bg:#EAF6EE;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    font-size:15px; line-height:1.5;
+    padding-bottom:calc(28px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* ===== header ===== */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(245,247,246,.94);
+    -webkit-backdrop-filter:saturate(1.4) blur(12px);
+    backdrop-filter:saturate(1.4) blur(12px);
+    border-bottom:1px solid var(--line);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  }
+  .hd-top{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+  .hd-top h1{font-size:19px;margin:0;letter-spacing:.2px;font-weight:650}
+  .hd-top .unit{font-size:12px;color:var(--muted)}
+  .hd-top .badge{
+    margin-left:auto;font-size:11px;color:var(--accent);
+    background:var(--accent-soft);padding:3px 8px;border-radius:8px;white-space:nowrap;
+  }
+
+  .search{position:relative}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;fill:none;stroke:var(--muted);stroke-width:1.8}
+  #q{
+    width:100%;height:42px;border:1px solid var(--line);border-radius:12px;
+    background:#fff;padding:0 40px 0 36px;font-size:15px;color:var(--ink);
+    outline:none;transition:border-color .15s, box-shadow .15s;
+    font-family:inherit;
+  }
+  #q::placeholder{color:#9AA9A0}
+  #q:focus{border-color:#9BCDB7;box-shadow:0 0 0 3px rgba(15,122,90,.09)}
+  #clear{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border:0;background:transparent;color:var(--muted);
+    font-size:16px;line-height:1;display:none;cursor:pointer;
+  }
+  .search.has-val #clear{display:block}
+
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none;-ms-overflow-style:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{
+    flex:0 0 auto;padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+    background:#fff;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer;
+    transition:all .15s;font-family:inherit;
+  }
+  .chip:active{transform:scale(.97)}
+  .chip .n{font-size:11px;opacity:.75;margin-left:3px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.on .n{opacity:.9}
+  .chip.is-cat.on{background:#26362E;border-color:#26362E}
+
+  .meta{display:flex;align-items:center;gap:10px;padding-top:6px}
+  .meta .count{font-size:12px;color:var(--muted)}
+  .meta .spacer{flex:1}
+  #sortBtn{
+    border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12px;
+    padding:5px 10px;border-radius:9px;cursor:pointer;font-family:inherit;
+  }
+
+  /* ===== list ===== */
+  main{padding:12px 16px 0}
+  .card{
+    display:flex;align-items:center;gap:12px;
+    background:var(--card);border-radius:var(--radius);padding:12px 14px 12px 0;
+    margin-bottom:8px;box-shadow:0 1px 2px rgba(21,33,27,.04);
+    overflow:hidden;cursor:pointer;border:1px solid transparent;
+    transition:transform .12s, box-shadow .12s;
+  }
+  .card:active{transform:scale(.992);box-shadow:0 0 0 rgba(0,0,0,0)}
+  .card .bar{width:4px;align-self:stretch;flex:0 0 4px;border-radius:0 4px 4px 0}
+  .card .info{min-width:0;flex:1}
+  .name{font-size:15.5px;font-weight:600;letter-spacing:.2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .tag{
+    font-size:10.5px;font-weight:500;padding:2px 6px;border-radius:5px;
+    color:var(--muted);background:#F0F3F1;white-space:nowrap;
+  }
+  .note{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .num{flex:0 0 auto;text-align:right;padding-right:2px}
+  .num b{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .num span{display:block;font-size:10px;color:#93A29A;margin-top:-2px}
+
+  .card[data-t="极高"] .bar{background:var(--vhigh)}
+  .card[data-t="高"]   .bar{background:var(--high)}
+  .card[data-t="中"]   .bar{background:var(--mid)}
+  .card[data-t="低"]   .bar{background:var(--low)}
+  .card[data-t="极高"] .num b{color:var(--vhigh)}
+  .card[data-t="高"]   .num b{color:var(--high)}
+  .card[data-t="中"]   .num b{color:var(--mid)}
+  .card[data-t="低"]   .num b{color:var(--low)}
+  .card[data-t="极高"] .tag{color:var(--vhigh);background:var(--vhigh-bg)}
+  .card[data-t="高"]   .tag{color:var(--high);background:var(--high-bg)}
+  .card[data-t="中"]   .tag{color:var(--mid);background:var(--mid-bg)}
+  .card[data-t="低"]   .tag{color:var(--low);background:var(--low-bg)}
+
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:44px 20px;line-height:1.8}
+  .empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px;font-weight:600}
+
+  /* ===== legend / footnote ===== */
+  .legend{
+    margin:16px 16px 0;background:#fff;border-radius:var(--radius);padding:14px 16px;border:1px solid var(--line);
+  }
+  .legend h3{font-size:13px;margin:0 0 8px;font-weight:600;color:var(--ink)}
+  .legend ul{margin:0;padding-left:0;list-style:none;font-size:12px;color:var(--muted);line-height:1.85}
+  .legend li{display:flex;gap:8px;align-items:flex-start}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px;margin-top:7px}
+  .legend .src{margin-top:10px;font-size:11.5px;color:#87968E;line-height:1.7;border-top:1px dashed var(--line);padding-top:10px}
+  .tip{
+    margin:10px 16px 0;font-size:12px;color:#5F7168;background:var(--accent-soft);
+    border-radius:12px;padding:10px 12px;line-height:1.7;
+  }
+
+  /* ===== sheet ===== */
+  .mask{
+    position:fixed;inset:0;background:rgba(16,26,21,.42);opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:40;
+  }
+  .mask.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:41;
+    background:#fff;border-radius:20px 20px 0 0;
+    transform:translateY(102%);transition:transform .26s cubic-bezier(.22,.61,.36,1);
+    padding:8px 18px calc(18px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 30px rgba(0,0,0,.12);max-height:86vh;overflow-y:auto;
+  }
+  .sheet.on{transform:translateY(0)}
+  .grab{width:38px;height:4px;border-radius:2px;background:#DDE4E0;margin:6px auto 12px}
+  .sh-head{display:flex;align-items:flex-start;gap:10px}
+  .sh-head .name{font-size:17px}
+  .sh-head .x{
+    margin-left:auto;border:0;background:#F3F6F4;width:28px;height:28px;border-radius:50%;
+    color:var(--muted);font-size:15px;line-height:1;cursor:pointer;flex:0 0 28px;
+  }
+  .sh-base{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.7}
+  .sh-base b{color:var(--ink);font-weight:600}
+  .sh-note{display:block;margin-top:3px;color:#8A9A91}
+
+  .calc{margin-top:16px;background:#F7F9F8;border-radius:14px;padding:14px}
+  .calc .row1{display:flex;align-items:center;gap:8px}
+  .calc label{font-size:12.5px;color:var(--muted)}
+  .stepper{margin-left:auto;display:flex;align-items:center;gap:0;border:1px solid var(--line);background:#fff;border-radius:10px;overflow:hidden}
+  .stepper button{
+    width:32px;height:32px;border:0;background:#fff;color:var(--ink);font-size:17px;line-height:1;
+    cursor:pointer;font-family:inherit;
+  }
+  .stepper button:active{background:#EFF3F1}
+  .stepper input{
+    width:58px;height:32px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);
+    text-align:center;font-size:15px;color:var(--ink);font-family:inherit;outline:none;
+    background:#fff;font-variant-numeric:tabular-nums;
+  }
+  .grams-quick{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .grams-quick button{
+    border:1px solid var(--line);background:#fff;color:var(--muted);font-size:12px;
+    padding:4px 9px;border-radius:8px;cursor:pointer;font-family:inherit;
+  }
+  .grams-quick button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+  .result{margin-top:14px;display:flex;align-items:flex-end;gap:8px}
+  .result .big{font-size:30px;font-weight:680;letter-spacing:-.6px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .result .u{font-size:12.5px;color:var(--muted);padding-bottom:4px}
+  .share{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+  .share .pct{color:var(--ink);font-weight:600}
+  .advice{
+    margin-top:14px;border-radius:12px;padding:11px 12px;font-size:12.5px;line-height:1.7;color:#33473C;
+  }
+  .advice b{display:block;font-size:13px;margin-bottom:2px}
+  .advice[data-t="极高"]{background:var(--vhigh-bg)} .advice[data-t="极高"] b{color:var(--vhigh)}
+  .advice[data-t="高"]{background:var(--high-bg)}   .advice[data-t="高"] b{color:var(--high)}
+  .advice[data-t="中"]{background:var(--mid-bg)}     .advice[data-t="中"] b{color:var(--mid)}
+  .advice[data-t="低"]{background:var(--low-bg)}     .advice[data-t="低"] b{color:var(--low)}
+
+  @media (min-width:640px){
+    main{padding-left:24px;padding-right:24px}
+    header{padding-left:24px;padding-right:24px}
+  }
+  @media (min-width:800px){
+    .sheet{left:50%;right:auto;width:760px;transform:translate(-50%,102%)}
+    .sheet.on{transform:translate(-50%,0)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="hd-top">
+      <h1>食物嘌呤查询</h1>
+      <span class="unit">mg / 100g</span>
+      <span class="badge" id="totalBadge">—</span>
+    </div>
+
+    <div class="search" id="searchWrap">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M16.5 16.5 L21 21"></path></svg>
+      <input id="q" type="search" inputmode="search" autocomplete="off" placeholder="搜食物名，如 猪肝、豆浆、香菇" aria-label="搜索食物">
+      <button id="clear" aria-label="清空">✕</button>
+    </div>
+
+    <div class="chips" id="tierChips"></div>
+    <div class="chips" id="catChips"></div>
+
+    <div class="meta">
+      <span class="count" id="count"></span>
+      <span class="spacer"></span>
+      <button id="sortBtn">嘌呤 高→低</button>
+    </div>
+  </header>
+
+  <main id="list"></main>
+
+  <div class="legend">
+    <h3>四档分级怎么算</h3>
+    <ul>
+      <li><i class="dot" style="background:var(--vhigh)"></i><span><b>极高</b>　≥150　动物内脏、部分海产、干制菌藻、浓汤，尽量避开</span></li>
+      <li><i class="dot" style="background:var(--high)"></i><span><b>高</b>　75–150　多数红肉、禽肉、多数鱼虾，严格限量</span></li>
+      <li><i class="dot" style="background:var(--mid)"></i><span><b>中</b>　30–75　部分蔬菜、菌菇、豆制品、粗粮，缓解期少量</span></li>
+      <li><i class="dot" style="background:var(--low)"></i><span><b>低</b>　&lt;30　奶蛋、多数蔬果、精白主食，日常可放心</span></li>
+    </ul>
+    <div class="src">数值参考国家卫生健康委《成人高尿酸血症与痛风食养指南（2024年版）》附录1，原始数据出自《中国食物成分表》2019 第6版/第二册（总嘌呤值）。同类食物因品种、部位、产地、干鲜状态不同会有差异，本表为参考值，不构成医疗建议。</div>
+  </div>
+
+  <div class="tip">手机上用：浏览器打开后点「分享 / 菜单 → 添加到主屏幕」，桌面会多一个图标，以后点图标直接进，不用再翻链接。点任意一行可以按克数算这顿吃进多少毫克。</div>
+
+  <div class="tip" style="background:#FFF7E8;color:#7A5F22">啤酒、白酒的嘌呤数值不算高，但酒精会抑制尿酸排泄、促进生成，属于痛风明确的诱发因素，建议避免；含糖饮料与果汁的果糖同样会升高尿酸，看嘌呤值之外也要看这两项。</div>
+</div>
+
+<div class="mask" id="mask"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="克数换算">
+  <div class="grab"></div>
+  <div class="sh-head">
+    <div>
+      <div class="name" id="shName">—</div>
+      <div class="sh-base" id="shBase"></div>
+    </div>
+    <button class="x" id="shClose" aria-label="关闭">✕</button>
+  </div>
+
+  <div class="calc">
+    <div class="row1">
+      <label for="grams">实际吃多少克（可食部）</label>
+      <div class="stepper">
+        <button id="minus" aria-label="减少">−</button>
+        <input id="grams" type="number" inputmode="numeric" min="0" max="2000" step="10" value="100">
+        <button id="plus" aria-label="增加">＋</button>
+      </div>
+    </div>
+    <div class="grams-quick" id="quickG"></div>
+
+    <div class="result">
+      <span class="big" id="mgOut">—</span>
+      <span class="u">mg 嘌呤</span>
+    </div>
+    <div class="share" id="shareOut"></div>
+    <div class="advice" id="advice" data-t="低"><b>—</b><span>—</span></div>
+    <div style="font-size:11.5px;color:#93A29A;margin-top:10px">换算：每 100g 嘌呤值 × 克数 ÷ 100</div>
+  </div>
+</div>
+
+<script>
+/* ---------------- 数据 ----------------
+   格式：[名称, 类别, 嘌呤值(mg/100g), 备注(可选)]
+   分级按官方口径：≥150 极高 / 75–150 高 / 30–75 中 / <30 低
+--------------------------------------- */
+/*DATA*/
+const DATA = [
+  // 谷薯主食
+  ["大米","谷薯主食",44],
+  ["粳米","谷薯主食",31],
+  ["糙米","谷薯主食",35,"全谷物，优于精白米"],
+  ["黑米","谷薯主食",63],
+  ["糯米","谷薯主食",50],
+  ["小米","谷薯主食",20],
+  ["燕麦","谷薯主食",59,"优先选整粒燕麦"],
+  ["荞麦","谷薯主食",34],
+  ["大麦","谷薯主食",47],
+  ["薏米","谷薯主食",15],
+  ["全麦粉","谷薯主食",42],
+  ["面粉","谷薯主食",26],
+  ["富强粉","谷薯主食",37],
+  ["挂面","谷薯主食",21],
+  ["馒头","谷薯主食",27],
+  ["花卷","谷薯主食",45],
+  ["面包（带皮）","谷薯主食",51],
+  ["面包（去皮）","谷薯主食",50],
+  ["烧饼","谷薯主食",27],
+  ["油条","谷薯主食",19,"油炸，热量高"],
+  ["油饼","谷薯主食",27,"油炸，热量高"],
+  ["麻花","谷薯主食",39,"油炸，热量高"],
+  ["煎饼（玉米味）","谷薯主食",46],
+  ["煎饼（大米味）","谷薯主食",36],
+  ["玉米面","谷薯主食",12],
+  ["玉米面发糕","谷薯主食",19],
+  ["粽子","谷薯主食",12],
+  ["饺子粉","谷薯主食",17],
+  ["雪饼","谷薯主食",28],
+  ["虎皮糕","谷薯主食",13],
+  ["长白糕","谷薯主食",13],
+  ["马铃薯（土豆）","谷薯主食",13],
+  ["红薯（地瓜）","谷薯主食",13],
+  ["紫薯","谷薯主食",24],
+  ["木薯","谷薯主食",10],
+  ["粉条","谷薯主食",2],
+  ["拉皮","谷薯主食",3],
+  ["土豆淀粉","谷薯主食",5],
+
+  // 蔬菜类
+  ["大白菜","蔬菜类",14],
+  ["油菜","蔬菜类",17],
+  ["生菜","蔬菜类",16],
+  ["油麦菜","蔬菜类",13],
+  ["菠菜","蔬菜类",57,"叶菜中偏高，焯水可溶出一部分"],
+  ["空心菜","蔬菜类",22],
+  ["茼蒿","蔬菜类",15],
+  ["香菜","蔬菜类",20],
+  ["芹菜","蔬菜类",5],
+  ["莴笋","蔬菜类",12],
+  ["黄瓜","蔬菜类",11],
+  ["冬瓜","蔬菜类",1],
+  ["南瓜","蔬菜类",29],
+  ["丝瓜","蔬菜类",14],
+  ["西葫芦","蔬菜类",20],
+  ["茄子","蔬菜类",13],
+  ["青椒","蔬菜类",6],
+  ["尖椒","蔬菜类",11],
+  ["番茄（西红柿）","蔬菜类",17],
+  ["胡萝卜","蔬菜类",17],
+  ["白萝卜","蔬菜类",11],
+  ["红萝卜","蔬菜类",13],
+  ["水萝卜","蔬菜类",14],
+  ["大头菜","蔬菜类",10],
+  ["竹笋","蔬菜类",13],
+  ["茭白","蔬菜类",10],
+  ["莲藕","蔬菜类",10],
+  ["山药","蔬菜类",15],
+  ["芋头","蔬菜类",15],
+  ["菜花（花椰菜）","蔬菜类",41],
+  ["西兰花","蔬菜类",58],
+  ["香椿","蔬菜类",40],
+  ["茴香","蔬菜类",38],
+  ["大葱","蔬菜类",31],
+  ["豌豆（鲜）","蔬菜类",86,"鲜豆类比一般蔬菜高"],
+  ["四季豆","蔬菜类",23],
+  ["豇豆","蔬菜类",40],
+  ["豇豆角","蔬菜类",45],
+  ["黄豆芽","蔬菜类",29],
+  ["绿豆芽","蔬菜类",11],
+  ["蕨菜","蔬菜类",8],
+  ["酸菜","蔬菜类",17,"腌制，注意钠"],
+  ["洋葱","蔬菜类",10],
+  ["韭菜","蔬菜类",25],
+  ["芦笋","蔬菜类",50],
+
+  // 菌藻类
+  ["香菇（鲜）","菌藻类",37],
+  ["香菇（干）","菌藻类",405,"按干重计，泡发后少量即够"],
+  ["平菇（鲜）","菌藻类",89],
+  ["金针菇（鲜）","菌藻类",59],
+  ["杏鲍菇（鲜）","菌藻类",94],
+  ["口蘑（鲜）","菌藻类",50],
+  ["白灵菇（鲜）","菌藻类",39],
+  ["茶树菇（鲜）","菌藻类",48],
+  ["茶树菇（干）","菌藻类",293,"按干重计"],
+  ["滑子蘑（鲜）","菌藻类",73],
+  ["猴头菇（鲜）","菌藻类",53],
+  ["猴头菇（干）","菌藻类",178,"按干重计"],
+  ["榛蘑（干）","菌藻类",186,"按干重计"],
+  ["木耳（干）","菌藻类",166,"按干重计"],
+  ["木耳（水发）","菌藻类",38],
+  ["银耳（干）","菌藻类",124,"按干重计"],
+  ["紫菜（干）","菌藻类",415,"按干重计，一小把就不少"],
+  ["海苔","菌藻类",249,"按干重计"],
+  ["裙带菜（干）","菌藻类",136,"按干重计"],
+  ["海木耳（干）","菌藻类",90,"按干重计"],
+  ["海带根","菌藻类",17],
+  ["鲍鱼菇（干）","菌藻类",424,"按干重计"],
+  ["竹荪（干）","菌藻类",285,"按干重计"],
+  ["元蘑（干）","菌藻类",267,"按干重计"],
+  ["姬松茸（干）","菌藻类",226,"按干重计"],
+  ["鸡腿蘑（鲜）","菌藻类",21],
+  ["黄蘑（鲜）","菌藻类",52],
+  ["白玉菇（鲜）","菌藻类",56],
+
+  // 豆及豆制品
+  ["黄豆","豆及豆制品",218,"干豆；植物嘌呤利用率较低，但仍需限量"],
+  ["黑豆","豆及豆制品",170,"干豆"],
+  ["绿豆","豆及豆制品",196,"干豆"],
+  ["红小豆","豆及豆制品",156,"干豆"],
+  ["芸豆","豆及豆制品",307,"干豆"],
+  ["花芸豆","豆及豆制品",118,"干豆"],
+  ["豌豆（干）","豆及豆制品",175,"干豆"],
+  ["腐竹","豆及豆制品",160,"干制品"],
+  ["豆粉","豆及豆制品",167,"干制品"],
+  ["纳豆","豆及豆制品",110],
+  ["豆腐渣","豆及豆制品",109],
+  ["内酯豆腐","豆及豆制品",100],
+  ["南豆腐","豆及豆制品",94],
+  ["北豆腐","豆及豆制品",68],
+  ["豆腐干（豆制品）","豆及豆制品",89],
+  ["豆浆（5%浓度）","豆及豆制品",18,"越浓越高"],
+  ["浓豆浆（20%浓度）","豆及豆制品",63,"越浓越高"],
+  ["甜豆浆","豆及豆制品",29,"含糖，注意果糖"],
+
+  // 水果类
+  ["苹果","水果类",1],
+  ["梨","水果类",5],
+  ["桃","水果类",14],
+  ["樱桃","水果类",11],
+  ["葡萄","水果类",8],
+  ["香蕉","水果类",7],
+  ["西瓜","水果类",6],
+  ["木瓜","水果类",4],
+  ["菠萝","水果类",11],
+  ["芒果","水果类",12],
+  ["火龙果","水果类",13],
+  ["荔枝干","水果类",20,"干制，糖分高"],
+  ["桂圆干","水果类",7,"干制，糖分高"],
+  ["大枣","水果类",13],
+  ["橘子","水果类",25],
+  ["杨梅","水果类",10],
+  ["李子","水果类",5],
+  ["杏","水果类",5],
+  ["香瓜","水果类",7],
+  ["伊丽莎白瓜","水果类",7],
+
+  // 坚果种子
+  ["花生（生）","坚果种子",85],
+  ["腰果（熟）","坚果种子",80],
+  ["松子（熟）","坚果种子",75],
+  ["开心果（熟）","坚果种子",70],
+  ["白芝麻（熟）","坚果种子",66],
+  ["南瓜子（熟）","坚果种子",61],
+  ["葵花子（熟）","坚果种子",27],
+  ["核桃（熟）","坚果种子",40],
+  ["杏仁（熟）","坚果种子",32],
+  ["大杏仁（熟）","坚果种子",45],
+  ["栗子（熟）","坚果种子",35],
+  ["黑芝麻（熟）","坚果种子",43],
+  ["夏威夷果（熟）","坚果种子",26],
+  ["银杏果（熟）","坚果种子",26],
+  ["榛子（熟）","坚果种子",76],
+  ["开口大榛子（熟）","坚果种子",42],
+
+  // 畜禽肉类
+  ["猪肉（瘦）","畜禽肉类",138],
+  ["猪肉（肥）","畜禽肉类",127,"脂肪高，同样升尿酸"],
+  ["猪血","畜禽肉类",40,"肉类里少见的低值"],
+  ["牛肉","畜禽肉类",105],
+  ["牛肉（后腿）","畜禽肉类",71],
+  ["牛肉（前腿）","畜禽肉类",76],
+  ["牛肉干","畜禽肉类",127,"加工肉制品，注意钠"],
+  ["猪肉松","畜禽肉类",131,"加工肉制品"],
+  ["羊肉","畜禽肉类",111],
+  ["鸡胸肉","畜禽肉类",208],
+  ["鸡腿肉","畜禽肉类",208],
+  ["乌鸡（生）","畜禽肉类",173],
+  ["烧鸡（熟）","畜禽肉类",188],
+  ["烧鸭（熟）","畜禽肉类",89],
+
+  // 动物内脏
+  ["猪肝","动物内脏",275,"同时高脂、高胆固醇"],
+  ["猪肺","动物内脏",272],
+  ["猪心","动物内脏",170],
+  ["猪肚（熟）","动物内脏",252],
+  ["猪肥肠（熟）","动物内脏",296],
+  ["猪舌","动物内脏",186],
+  ["牛肝","动物内脏",251],
+  ["羊肝","动物内脏",228],
+  ["鸡肝","动物内脏",293],
+  ["鸭肝","动物内脏",346],
+  ["鸡胗","动物内脏",218],
+  ["鸡肚（熟）","动物内脏",229],
+
+  // 水产海鲜
+  ["鲅鱼","水产海鲜",214],
+  ["海鲈鱼","水产海鲜",227],
+  ["鸦片鱼","水产海鲜",211],
+  ["鲟鱼（熟）","水产海鲜",202],
+  ["红头鱼","水产海鲜",195],
+  ["黑鱼","水产海鲜",214],
+  ["草鱼（熟）","水产海鲜",162],
+  ["鲫鱼","水产海鲜",154],
+  ["白鱼","水产海鲜",153],
+  ["刀鱼","水产海鲜",161],
+  ["武昌鱼","水产海鲜",128],
+  ["鳝鱼","水产海鲜",127],
+  ["罗非鱼","水产海鲜",126],
+  ["鲤鱼","水产海鲜",122],
+  ["桂鱼","水产海鲜",121],
+  ["鳕鱼","水产海鲜",71,"鱼里偏低的选项"],
+  ["多宝鱼","水产海鲜",70],
+  ["银鱼","水产海鲜",23,"鱼里最低的一档"],
+  ["三文鱼","水产海鲜",168],
+  ["黄花鱼","水产海鲜",165],
+  ["烤虾","水产海鲜",389,"烤制脱水，按干重折算"],
+  ["鲜对虾","水产海鲜",101],
+  ["干对虾","水产海鲜",349,"干制品，按干重计"],
+  ["江虾（熟）","水产海鲜",265],
+  ["干虾仁","水产海鲜",345,"干制品，按干重计"],
+  ["河蟹（生）","水产海鲜",147],
+  ["大闸蟹（熟）","水产海鲜",121],
+  ["贻贝","水产海鲜",414],
+  ["生蚝","水产海鲜",282],
+  ["牡蛎（熟）","水产海鲜",193],
+  ["毛蚶（熟）","水产海鲜",343],
+  ["蛏子","水产海鲜",149],
+  ["蚬子","水产海鲜",180],
+  ["鲜贝","水产海鲜",167],
+  ["干贝","水产海鲜",193,"干制品，按干重计"],
+  ["鲜鲍鱼","水产海鲜",102],
+  ["干鲍鱼","水产海鲜",171,"干制品，按干重计"],
+  ["大海螺","水产海鲜",95],
+  ["鱿鱼（鲜）","水产海鲜",226],
+  ["鱼籽","水产海鲜",136,"胆固醇也高"],
+
+  // 蛋类
+  ["鸡蛋（熟）","蛋类",1,"优质蛋白首选"],
+  ["鸡蛋白","蛋类",1],
+  ["松花蛋","蛋类",1,"钠偏高"],
+  ["鹌鹑蛋","蛋类",7],
+
+  // 乳类
+  ["牛奶","乳类",1,"低脂更佳"],
+  ["酸奶","乳类",2,"选无糖"],
+  ["奶粉","乳类",4],
+  ["奶酪","乳类",2,"注意钠与脂肪"],
+
+  // 速食加工
+  ["水饺（三鲜馅）","速食加工",145],
+  ["饺子（猪肉芹菜）","速食加工",56],
+  ["饺子（猪肉香菇馅）","速食加工",42],
+  ["包子（羊肉萝卜馅）","速食加工",35],
+  ["方便面","速食加工",36,"油炸面饼，注意钠"],
+  ["黑芝麻糊","速食加工",47],
+  ["锅巴","速食加工",73],
+  ["薯片","速食加工",32,"油炸，热量高"],
+  ["饼干","速食加工",11],
+  ["月饼","速食加工",29,"高糖高油"],
+  ["爆米花","速食加工",20],
+  ["绿豆糕","速食加工",56],
+
+  // 饮料
+  ["雪碧","饮料",1,"含糖饮料，果糖升尿酸"],
+  ["苹果汁","饮料",1,"果汁果糖高，不建议"],
+  ["橙汁","饮料",1,"果汁果糖高，不建议"],
+  ["绿茶","饮料",1],
+  ["冰红茶","饮料",1,"含糖"],
+  ["咖啡（黑）","饮料",2,"不加糖奶为宜"],
+
+  // 调味品
+  ["海鲜酱油","调味品",58,"钠高"],
+  ["豆瓣酱","调味品",77,"钠高"],
+  ["甜面酱","调味品",10,"钠高"],
+  ["葱味虾酱","调味品",45,"钠高"],
+  ["番茄酱","调味品",7],
+  ["米醋（3.5度）","调味品",3],
+  ["山西陈醋","调味品",12],
+  ["颗粒花生酱","调味品",41],
+  ["沙拉酱","调味品",3,"脂肪高"],
+  ["浓肉汤／火锅汤","调味品",500,"嘌呤大量溶入汤中，久煮更高，别喝汤"]
+];
+/*ENDDATA*/
+
+const TIERS = [
+  {k:"极高", min:150, color:"var(--vhigh)", bg:"var(--vhigh-bg)",
+   tip:"尽量避开。动物内脏、部分海产、干制菌藻与浓汤都在这一档，痛风急性期尤其要忌。"},
+  {k:"高", min:75, color:"var(--high)", bg:"var(--high-bg)",
+   tip:"严格限量。多数红肉、禽肉和鱼虾在此，单次控制在 50g 上下，别天天吃。"},
+  {k:"中", min:30, color:"var(--mid)", bg:"var(--mid-bg)",
+   tip:"缓解期可少量。蔬菜、菌菇、豆制品、粗粮多在此，注意总量而不是单次。"},
+  {k:"低", min:0, color:"var(--low)", bg:"var(--low-bg)",
+   tip:"日常可放心。奶蛋、多数蔬果、精白主食在此，注意总热量和添加糖即可。"}
+];
+function tierOf(v){ return v>=150?"极高" : v>=75?"高" : v>=30?"中" : "低"; }
+function tierMeta(k){ return TIERS.find(t=>t.k===k); }
+
+const CATS = ["谷薯主食","蔬菜类","菌藻类","豆及豆制品","水果类","坚果种子","畜禽肉类","动物内脏","水产海鲜","蛋类","乳类","速食加工","饮料","调味品"];
+
+const state = { q:"", tier:"全部", cat:"全部", sort:"desc" };
+
+const $ = id => document.getElementById(id);
+const listEl = $("list");
+
+/* ---------- chips ---------- */
+function countByTier(k){
+  return DATA.filter(d=>k==="全部" || tierOf(d[2])===k).length;
+}
+function buildChips(){
+  const tierBox = $("tierChips");
+  tierBox.innerHTML = "";
+  ["全部","极高","高","中","低"].forEach(k=>{
+    const b = document.createElement("button");
+    b.className = "chip" + (state.tier===k ? " on":"");
+    b.innerHTML = (k==="全部"?"全部分级":k) + '<span class="n">' + countByTier(k) + '</span>';
+    b.onclick = ()=>{ state.tier = k; buildChips(); render(); };
+    tierBox.appendChild(b);
+  });
+
+  const catBox = $("catChips");
+  catBox.innerHTML = "";
+  ["全部",...CATS].forEach(k=>{
+    const b = document.createElement("button");
+    b.className = "chip is-cat" + (state.cat===k ? " on":"");
+    b.textContent = k==="全部" ? "全部类型" : k;
+    b.onclick = ()=>{ state.cat = k; buildChips(); render(); catBox.scrollLeft = 0; };
+    catBox.appendChild(b);
+  });
+}
+
+/* ---------- list ---------- */
+function currentRows(){
+  const q = state.q.trim().toLowerCase();
+  let rows = DATA.filter(d=>{
+    if(state.tier!=="全部" && tierOf(d[2])!==state.tier) return false;
+    if(state.cat!=="全部" && d[1]!==state.cat) return false;
+    if(q){
+      const hay = (d[0]+" "+d[1]+" "+(d[3]||"")).toLowerCase();
+      return hay.indexOf(q)>=0;
+    }
+    return true;
+  });
+  if(state.sort==="desc") rows.sort((a,b)=>b[2]-a[2]);
+  else if(state.sort==="asc") rows.sort((a,b)=>a[2]-b[2]);
+  else rows.sort((a,b)=>a[0].localeCompare(b[0],"zh-Hans-CN"));
+  return rows;
+}
+
+function render(){
+  const rows = currentRows();
+  $("count").textContent = "共 " + rows.length + " 种" + (state.q ? " · 关键词「"+state.q+"」" : "");
+  const total = DATA.length;
+  $("totalBadge").textContent = total + " 种食物";
+
+  if(!rows.length){
+    listEl.innerHTML = '<div class="empty"><b>没找到这个食物</b>换个说法试试，比如「猪肝」「豆浆」「香菇」，或者把筛选切回「全部分级」。</div>';
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  rows.forEach((d, i)=>{
+    const t = tierOf(d[2]);
+    const el = document.createElement("article");
+    el.className = "card";
+    el.dataset.t = t;
+    el.dataset.i = i;
+    el.innerHTML =
+      '<div class="bar"></div>' +
+      '<div class="info">' +
+        '<div class="name">' + d[0] + '<span class="tag">' + t + '</span><span class="tag">' + d[1] + '</span></div>' +
+        (d[3] ? '<div class="note">' + d[3] + '</div>' : '') +
+      '</div>' +
+      '<div class="num"><b>' + (Number.isInteger(d[2]) ? d[2] : d[2].toFixed(1)) + '</b><span>mg/100g</span></div>';
+    frag.appendChild(el);
+  });
+  listEl.innerHTML = "";
+  listEl.appendChild(frag);
+}
+
+listEl.addEventListener("click", e=>{
+  const card = e.target.closest(".card");
+  if(!card) return;
+  const rows = currentRows();
+  const d = rows[Number(card.dataset.i)];
+  if(d) openSheet(d);
+});
+
+/* ---------- search ---------- */
+const qEl = $("q"), searchWrap = $("searchWrap");
+qEl.addEventListener("input", ()=>{
+  state.q = qEl.value;
+  searchWrap.classList.toggle("has-val", !!qEl.value);
+  render();
+});
+$("clear").onclick = ()=>{
+  qEl.value = ""; state.q = ""; searchWrap.classList.remove("has-val"); qEl.focus(); render();
+};
+
+/* ---------- sort ---------- */
+$("sortBtn").onclick = ()=>{
+  state.sort = state.sort==="desc" ? "asc" : state.sort==="asc" ? "name" : "desc";
+  $("sortBtn").textContent = state.sort==="desc" ? "嘌呤 高→低" : state.sort==="asc" ? "嘌呤 低→高" : "按名称";
+  render();
+};
+
+/* ---------- sheet ---------- */
+let sheetItem = null;
+const mask = $("mask"), sheet = $("sheet"), gramsEl = $("grams");
+
+function openSheet(d){
+  sheetItem = d;
+  const t = tierOf(d[2]);
+  $("shName").textContent = d[0];
+  $("shBase").innerHTML = '<span style="color:'+tierMeta(t).color+';font-weight:600">'+t+'</span>　·　' +
+      d[1] + '　·　每 100g <b>' + d[2] + '</b> mg' +
+      (d[3] ? '<span class="sh-note">'+d[3]+'</span>' : '');
+  gramsEl.value = 100;
+  paintQuick(100);
+  const adv = $("advice");
+  adv.dataset.t = t;
+  adv.querySelector("b").textContent = t + "档 · 怎么吃";
+  adv.querySelector("span").textContent = tierMeta(t).tip;
+  compute();
+  mask.classList.add("on");
+  sheet.classList.add("on");
+  document.body.style.overflow = "hidden";
+}
+function closeSheet(){
+  mask.classList.remove("on");
+  sheet.classList.remove("on");
+  document.body.style.overflow = "";
+}
+mask.onclick = closeSheet;
+$("shClose").onclick = closeSheet;
+
+const QUICK = [50,100,150,200,300];
+function paintQuick(g){
+  $("quickG").innerHTML = QUICK.map(v=>
+    '<button data-g="'+v+'" class="'+(v===g?'on':'')+'">'+v+'g</button>').join("");
+}
+$("quickG").addEventListener("click", e=>{
+  const b = e.target.closest("button");
+  if(!b) return;
+  gramsEl.value = b.dataset.g;
+  paintQuick(Number(b.dataset.g));
+  compute();
+});
+gramsEl.addEventListener("input", ()=>{ paintQuick(Number(gramsEl.value)); compute(); });
+
+function step(delta){
+  let v = Number(gramsEl.value) || 0;
+  v = Math.max(0, Math.min(2000, v + delta));
+  gramsEl.value = v;
+  paintQuick(v);
+  compute();
+}
+$("minus").onclick = ()=>step(-10);
+$("plus").onclick = ()=>step(10);
+
+function compute(){
+  if(!sheetItem) return;
+  const g = Math.max(0, Number(gramsEl.value) || 0);
+  const mg = sheetItem[2] * g / 100;
+  const t = tierOf(sheetItem[2]);
+  const out = mg >= 100 ? Math.round(mg) : mg >= 10 ? mg.toFixed(1) : mg.toFixed(2);
+  const big = $("mgOut");
+  big.textContent = out;
+  big.style.color = tierMeta(t).color;
+  const pct = Math.min(999, mg/300*100);
+  $("shareOut").innerHTML = "按每日 300mg 的常见控制目标估算，这一份约占 <span class=\"pct\">" +
+      (pct>=100 ? Math.round(pct) : pct.toFixed(0)) + "%</span>" +
+      (mg>=300 ? "，已经超过全天上限" : "。");
+}
+
+/* ---------- init ---------- */
+buildChips();
+render();
+</script>
+</body>
+</html>
